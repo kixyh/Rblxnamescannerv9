@@ -1,0 +1,7 @@
+{
+  "host": "smtp.gmail.com",
+  "port": 465,
+  "user": "youraddress@gmail.com",
+  "pass": "your-16-character-app-password",
+  "from": "ClientSided Scanner <youraddress@gmail.com>"
+}
