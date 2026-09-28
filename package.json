@@ -1,0 +1,6 @@
+{
+  "name": "clientsided-name-scanner",
+  "private": true,
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "nodemailer": "^6.9.0" }
+}
