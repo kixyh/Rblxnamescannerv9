@@ -125,10 +125,37 @@ li .mini{margin:0;flex:none}
 .sbtns{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
 .sbtns .go{flex:2;margin:0;padding:15px;font-size:14px;min-width:150px}
 .sbtns .mini{flex:1;margin:0;padding:13px}
+
+.mailrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.mailrow .field{flex:1;min-width:200px;margin-top:0}
+.mailmsg{margin-top:12px;font-size:13.5px;color:var(--mute)}
+.mailmsg:empty{display:none}
+.mailmsg.ok{color:var(--ok)}.mailmsg.bad{color:var(--bad)}
+.mailmsg .mini{margin:0 0 0 6px;padding:5px 10px}
+
+[hidden]{display:none!important}
+#intro{position:fixed;inset:0;z-index:100;display:grid;place-content:center;justify-items:center;gap:22px;background:radial-gradient(700px 420px at 50% 40%,#2a2670,var(--bg) 72%);transition:opacity .7s,transform .7s;cursor:pointer}
+#intro.out{opacity:0;transform:scale(1.08);pointer-events:none}
+.itiles{display:flex;justify-content:center;gap:6px;perspective:600px;padding:0 10px}
+.itiles .tile{width:clamp(22px,6.6vw,44px);animation:flip .4s both}
+.itiles .tile.lock{border-color:var(--c);box-shadow:0 0 30px -2px var(--c)}
+.itag{font:600 13px Unbounded;letter-spacing:.14em;color:var(--mute);opacity:0;animation:fade .7s 1.5s forwards}
+@keyframes fade{to{opacity:1}}
+.auth{max-width:420px;margin:0 auto;padding:26px}
+.auth h2{margin:0 0 16px;font:900 22px Unbounded}
+.tabs{display:flex;gap:6px}
+.tab{flex:1;padding:11px;border-radius:12px;border:1px solid var(--bd);background:var(--glass);color:#fff;font:500 14px Outfit;cursor:pointer}
+.tab.on{background:linear-gradient(135deg,var(--p),var(--m));border-color:transparent}
+.auth .field{margin-top:12px}
+.auth .go{margin-top:16px;padding:16px;font-size:15px}
+.auth .mini{width:100%;margin:12px 0 0;padding:13px}
+.userbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;color:var(--mute);font-size:14px}
+.userbar b{color:#fff}.userbar .mini{margin:0 0 0 6px}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
+<div id="intro" aria-hidden="true"><div class="itiles" id="itiles"></div><div class="itag">Private Roblox Name Scanner</div></div>
 <div class="bg"><i class="orb o1"></i><i class="orb o2"></i><i class="orb o3"></i></div>
 <main id="app">
 <header>
@@ -136,6 +163,20 @@ li .mini{margin:0;flex:none}
   <h1>ClientSided's Private Roblox Name Scanner</h1>
   <p>Choose a length and let it hunt for usernames nobody has claimed yet.</p>
 </header>
+
+<section class="glass auth" id="auth" hidden>
+  <h2 id="authTitle">Sign in</h2>
+  <div class="tabs"><button class="tab on" data-m="login">Sign in</button><button class="tab" data-m="signup">Create account</button></div>
+  <input class="field" id="un" placeholder="Username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="24">
+  <input class="field" id="pw" type="password" placeholder="Password (8+ characters)" autocomplete="current-password">
+  <button class="go" id="authGo">Sign in</button>
+  <button class="mini" id="pkLogin">Sign in with a passkey</button>
+  <div class="mailmsg bad" id="authMsg" role="alert"></div>
+</section>
+
+<div id="dash" hidden>
+<div class="userbar"><span>Signed in as <b id="who"></b></span><span><button class="mini" id="addPk">Add passkey</button><button class="mini" id="logout">Log out</button></span></div>
+<div class="mailmsg" id="acctmsg"></div>
 
 <section class="glass screen">
   <div class="radar"></div>
@@ -174,6 +215,14 @@ li .mini{margin:0;flex:none}
       <div class="presets"><button class="mini" data-n="1">1</button><button class="mini" data-n="5">5</button><button class="mini" data-n="10">10</button><button class="mini" data-n="25">25</button><button class="mini" data-n="50">50</button></div>
     </div>
     <div class="hint">It keeps scanning, skips every taken name, and stops once it has found this many.</div>
+  <section class="glass card wide">
+    <h3>Email the results</h3>
+    <div class="mailrow">
+      <label class="chip"><input type="checkbox" id="mailOn"><span>Email me when it's done</span></label>
+      <input class="field" id="mail" type="email" placeholder="you@example.com" autocomplete="email" autocapitalize="none" spellcheck="false" aria-label="Email address">
+      <button class="mini" id="mailTest" style="margin:0">Send test</button>
+    </div>
+    <div class="mailmsg" id="mailnote"></div>
   </section>
 </div>
 
@@ -189,7 +238,8 @@ li .mini{margin:0;flex:none}
 <div class="head"><h2>Available names</h2><div><button class="mini" id="snd">Sound on</button><button class="mini" id="copyAll">Copy all</button><button class="mini" id="clear">Clear</button></div></div>
 <ul id="list"></ul>
 <div class="none" id="none">Nothing found yet. Hit start and the good ones land here.</div>
-<p class="note">Roblox rate-limits requests, so the scanner pauses and resumes by itself. Names still have to be claimed on Roblox.</p>
+<p class="note">Roblox rate-limits requests, so the scanner pauses and resumes by itself. Names still have to be claimed on Roblox. Scans run on the server, so they keep going if you switch tabs or close the page.</p>
+</div>
 </main>
 
 <div class="overlay" id="ov" role="dialog" aria-modal="true" aria-labelledby="sTitle">
@@ -199,15 +249,38 @@ li .mini{margin:0;flex:none}
     <div class="facts" id="facts"></div>
     <h4 id="nHead">Available names found</h4>
     <ul id="sNames"></ul>
+    <div class="mailmsg" id="mailmsg"></div>
     <div class="sbtns"><button class="go" id="again">Scan again</button><button class="mini" id="copyN">Copy names</button><button class="mini" id="closeS">Close</button></div>
   </div>
 </div>
 <script>
 const $=id=>document.getElementById(id);
-let running=false,seen=new Set(),c=0,a=0,t=0,t0=0,found=[],sound=true,ac;
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let me=null,job=null,tid=0,shown=0,lastCur="",hold=0,sound=true,ac,target=5,authMode="login",ready=false,sv=0;
+async function api(p,b){
+  const r=await fetch("/api/"+p,{method:b===undefined?"GET":"POST",headers:{"Content-Type":"application/json"},body:b===undefined?undefined:JSON.stringify(b)});
+  let d={};try{d=await r.json()}catch(e){}
+  if(!r.ok)throw Object.assign(new Error(d.error||"Request failed"),{status:r.status});return d;
+}
+const b64u=b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const unb=s=>Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/")+"=".repeat((4-s.length%4)%4)),c=>c.charCodeAt(0));
+const fmt=ms=>{const s=Math.round(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60);return(h?h+"h ":"")+(h||m?m+"m ":"")+s%60+"s"};
+const tm=t=>new Date(t).toLocaleTimeString([],{hour:"numeric",minute:"2-digit",second:"2-digit"});
 
-function setLen(v){v=Math.max(3,Math.min(20,v));$("len").value=v;$("lenb").textContent=v;if(!running)drawTiles("",v);}
+/* opening animation */
+(function(){
+  const el=$("intro");
+  if(matchMedia("(prefers-reduced-motion:reduce)").matches){el.remove();return;}
+  const W="CLIENTSIDED",CH="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",t0=Date.now();
+  const tiles=[...W].map((l,i)=>{const d=document.createElement("div");d.className="tile";d.style.animationDelay=i*60+"ms";d.textContent="?";$("itiles").append(d);return d;});
+  const iv=setInterval(()=>tiles.forEach((d,i)=>{
+    if(Date.now()-t0>=700+i*110){d.textContent=W[i];d.classList.add("lock")}else d.textContent=CH[Math.random()*CH.length|0];
+  }),55);
+  const end=()=>{clearInterval(iv);el.classList.add("out");setTimeout(()=>el.remove(),750)};
+  setTimeout(end,3000);el.onclick=end;
+})();
+
+/* scanner UI */
+function setLen(v){v=Math.max(3,Math.min(20,+v||3));$("len").value=v;$("lenb").textContent=v;if(!job||!job.running)drawTiles("",v);saveS();}
 function drawTiles(name,len,cls,anim){
   const box=$("tiles");box.textContent="";
   for(let i=0;i<len;i++){
@@ -217,144 +290,178 @@ function drawTiles(name,len,cls,anim){
     d.textContent=name[i]||"?";box.append(d);
   }
 }
-$("len").oninput=e=>setLen(+e.target.value);
-$("minus").onclick=()=>setLen(+$("len").value-1);
-$("plus").onclick=()=>setLen(+$("len").value+1);
-
-function gen(len,pre){
-  const L="abcdefghijklmnopqrstuvwxyz",N="0123456789";
-  let pool="";if($("oL").checked)pool+=L;if($("oN").checked)pool+=N;
-  const useU=$("oU").checked;
-  for(let k=0;k<60;k++){
-    let s=pre,u=(pre.match(/_/g)||[]).length;
-    while(s.length<len){
-      const i=s.length,p=(useU&&u<1&&i>0&&i<len-1)?pool+"_":pool;
-      const ch=p[Math.floor(Math.random()*p.length)];
-      if(ch==="_")u++;s+=ch;
-    }
-    if(s.endsWith("_"))continue;
-    if($("oL").checked&&!/[a-z]/.test(s))continue;
-    return s;
-  }
-  return null;
-}
-function say(m,err){const s=$("status");s.textContent=m;s.className="status"+(err?" err":"");}
-function stats(){
-  $("sC").textContent=c;$("sA").textContent=a;$("sT").textContent=t;
-  const m=(Date.now()-t0)/60000;$("sR").textContent=m>0.02?Math.round(c/m):0;
-  $("hitCard").classList.toggle("hit",a>0);
-  document.title=(a?"("+a+") ":"")+"ClientSided's Private Roblox Name Scanner";
-}
-function mode(on){
-  running=on;$("app").classList.toggle("live",on);
-  $("go").textContent=on?"Stop scan":"Start scan";$("go").classList.toggle("stop",on);
-  $("badge").textContent=on?"Scanning live":"Standing by";
-}
-function feed(n){
-  const s=document.createElement("s");s.textContent=n;$("feed").prepend(s);
-  while($("feed").children.length>6)$("feed").lastChild.remove();
-  [...$("feed").children].forEach((e,i)=>e.style.opacity=1-i*.15);
-}
+function say(m,err){const e=$("status");e.textContent=m;e.className="status"+(err?" err":"");}
+function setRun(on){$("app").classList.toggle("live",on);$("go").textContent=on?"Stop scan":"Start scan";$("go").classList.toggle("stop",on);$("badge").textContent=on?"Scanning live":"Standing by";}
+function prog(n,t){$("bar").style.width=Math.min(100,n/t*100)+"%";$("plabel").textContent=n+" of "+t+" found";}
+function setTarget(v){target=Math.max(1,Math.min(999,Math.floor(+v)||1));$("amt").value=target;if(!job||!job.running)prog(0,target);saveS();}
 function beep(){
   if(!sound)return;
   try{ac=ac||new (window.AudioContext||window.webkitAudioContext)();
-    [660,880,1320].forEach((f,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=f;o.type="sine";
-      g.gain.setValueAtTime(.0001,ac.currentTime+i*.09);g.gain.exponentialRampToValueAtTime(.15,ac.currentTime+i*.09+.02);
-      g.gain.exponentialRampToValueAtTime(.0001,ac.currentTime+i*.09+.25);o.connect(g).connect(ac.destination);
-      o.start(ac.currentTime+i*.09);o.stop(ac.currentTime+i*.09+.3);});}catch(e){}
+    [660,880,1320].forEach((f,i)=>{const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime+i*.09;o.frequency.value=f;
+      g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.15,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.25);
+      o.connect(g).connect(ac.destination);o.start(t);o.stop(t+.3);});}catch(e){}
 }
 function burst(){
   const r=$("tiles").getBoundingClientRect(),cols=["#a855f7","#ff3d9a","#22d3ee","#4ade80","#fff"];
   for(let i=0;i<34;i++){
     const p=document.createElement("i");p.className="spark";p.style.background=cols[i%5];
     p.style.left=(r.left+r.width/2)+"px";p.style.top=(r.top+r.height/2)+"px";document.body.append(p);
-    const ang=Math.random()*6.28,d=80+Math.random()*180;
-    p.animate([{transform:"translate(0,0) rotate(0)",opacity:1},{transform:`translate(${Math.cos(ang)*d}px,${Math.sin(ang)*d+90}px) rotate(${Math.random()*720}deg)`,opacity:0}],{duration:900+Math.random()*500,easing:"cubic-bezier(.2,.7,.3,1)"}).onfinish=()=>p.remove();
+    const a=Math.random()*6.28,d=80+Math.random()*180;
+    p.animate([{transform:"translate(0,0) rotate(0)",opacity:1},{transform:`translate(${Math.cos(a)*d}px,${Math.sin(a)*d+90}px) rotate(${Math.random()*720}deg)`,opacity:0}],{duration:900+Math.random()*500,easing:"cubic-bezier(.2,.7,.3,1)"}).onfinish=()=>p.remove();
   }
 }
-
-let target=5,got=[],rlWait=0,cfg="";
-function setTarget(v){target=Math.max(1,Math.min(999,Math.floor(+v)||1));$("amt").value=target;prog();}
-function prog(){$("bar").style.width=Math.min(100,got.length/target*100)+"%";$("plabel").textContent=got.length+" of "+target+" found";}
-function fmt(ms){const s=Math.round(ms/1000),h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return (h?h+"h ":"")+(h||m?m+"m ":"")+x+"s";}
-
-async function scan(){
-  const len=+$("len").value,pre=$("pre").value.trim().toLowerCase();
-  if(!$("oL").checked&&!$("oN").checked){say("Turn on letters or numbers.",1);return;}
-  if(pre&&(!/^[a-z0-9_]+$/.test(pre)||pre.length>=len||pre.startsWith("_"))){say("Prefix must be shorter than the length and use letters, numbers or _ only.",1);return;}
-  c=a=t=0;got=[];rlWait=0;$("feed").textContent="";
-  cfg=len+" characters, "+[$("oL").checked&&"letters",$("oN").checked&&"numbers",$("oU").checked&&"underscore"].filter(Boolean).join(" + ")+(pre?', starts with "'+pre+'"':"");
-  mode(true);t0=Date.now();stats();prog();
-  let reason="stopped";
-  while(running){
-    if(got.length>=target){reason="done";break;}
-    const name=gen(len,pre);
-    if(!name){say("Ran out of combinations for these settings.",1);reason="exhausted";break;}
-    if(seen.has(name))continue;
-    seen.add(name);drawTiles(name,len,"",true);say("Checking "+name+" ("+got.length+"/"+target+" found)");
-    try{
-      const r=await fetch("/check?u="+encodeURIComponent(name));
-      const d=await r.json();
-      if(d.status===429){seen.delete(name);const w=Date.now();say("Rate limited. Resuming in 10 seconds...",1);await sleep(10000);rlWait+=Date.now()-w;continue;}
-      if(d.error)throw 0;
-      c++;
-      if(d.code===0){
-        a++;got.push(name);drawTiles(name,len,"ok");add(name);prog();beep();burst();stats();
-        if(got.length>=target){reason="done";break;}
-        say(name+" is available!");await sleep(900);
-      }else{t++;drawTiles(name,len,"no");feed(name);}
-    }catch(e){seen.delete(name);say("Can't reach the scanner server. Is node server.js running?",1);reason="error";break;}
-    stats();await sleep(380);
-  }
-  const ms=Date.now()-t0;stats();mode(false);
-  if(reason!=="error"||got.length)showSummary(reason,ms);
-}
-
-function showSummary(reason,ms){
-  const now=new Date(),min=ms/60000;
-  const T={done:"Scan complete",stopped:"Scan stopped",exhausted:"Out of combinations",error:"Scan interrupted"};
-  $("sTitle").textContent=T[reason];$("sTitle").className=reason==="done"?"":"warn";
-  $("sWhen").textContent=now.toLocaleDateString([],{weekday:"long",month:"long",day:"numeric"});
-  const time=now.toLocaleTimeString([],{hour:"numeric",minute:"2-digit",second:"2-digit"});
-  const F=[["Time taken",fmt(ms)],["Finished at",time],
-    ["Available found",got.length+" of "+target],["Names checked",c],
-    ["Taken (skipped)",t],["Hit rate",c?(a/c*100).toFixed(1)+"%":"0%"],
-    ["Speed",(min>0.01?Math.round(c/min):c)+" per minute"],["Avg time per find",got.length?fmt(ms/got.length):"none found"],
-    ["Rate-limit wait",fmt(rlWait)],["Started at",new Date(t0).toLocaleTimeString([],{hour:"numeric",minute:"2-digit",second:"2-digit"})],
-    ["Settings",cfg,1]];
-  $("facts").textContent="";
-  F.forEach(([k,v,full])=>{const d=document.createElement("div"),b=document.createElement("b"),sp=document.createElement("span");
-    d.className="fact"+(full?" full":"");b.textContent=v;sp.textContent=k;d.append(b,sp);$("facts").append(d);});
-  $("sNames").textContent="";
-  got.forEach(n=>{const li=document.createElement("li"),sp=document.createElement("span");sp.textContent=n;li.append(sp);$("sNames").append(li);});
-  $("nHead").hidden=!got.length;
-  say((reason==="done"?"Done":"Stopped")+" in "+fmt(ms)+" at "+time+". Found "+got.length+" available.");
-  $("ov").classList.add("on");$("closeS").focus();
-  if(reason==="done")burst();
-}
-function closeSummary(){$("ov").classList.remove("on");}
-
 function add(n){
-  found.push(n);$("none").hidden=true;
+  $("none").hidden=true;
   const li=document.createElement("li"),sp=document.createElement("span"),l=document.createElement("a"),b=document.createElement("button");
   sp.textContent=n;l.textContent="Claim";l.href="https://www.roblox.com/";l.target="_blank";l.rel="noopener";
   b.className="mini";b.textContent="Copy";
   b.onclick=()=>{navigator.clipboard.writeText(n);b.textContent="Copied";setTimeout(()=>b.textContent="Copy",1200);};
   li.append(sp,l,b);$("list").prepend(li);
 }
-$("go").onclick=()=>running?(running=false):scan();
-$("snd").onclick=()=>{sound=!sound;$("snd").textContent=sound?"Sound on":"Sound off";};
-$("copyAll").onclick=()=>{if(found.length){navigator.clipboard.writeText(found.join("\n"));$("copyAll").textContent="Copied";setTimeout(()=>$("copyAll").textContent="Copy all",1200);}};
-$("clear").onclick=()=>{found=[];$("list").textContent="";$("none").hidden=false;};
+const savedNames=()=>[...$("list").querySelectorAll("li>span")].map(x=>x.textContent);
+
+/* server-side scan: start, poll, render */
+async function startScan(){
+  const len=+$("len").value,pre=$("pre").value.trim().toLowerCase();
+  if(!$("oL").checked&&!$("oN").checked){say("Turn on letters or numbers.",1);return;}
+  if(pre&&(!/^[a-z0-9_]+$/.test(pre)||pre.length>=len||pre.startsWith("_"))){say("Prefix must be shorter than the length and use letters, numbers or _ only.",1);return;}
+  try{
+    await api("scan/start",{len,target,pre,letters:$("oL").checked,numbers:$("oN").checked,underscore:$("oU").checked,
+      email:$("mailOn").checked?$("mail").value.trim():"",tz:Intl.DateTimeFormat().resolvedOptions().timeZone});
+    shown=0;lastCur="";$("feed").textContent="";poll();
+  }catch(e){say(e.message,1);}
+}
+async function poll(){
+  clearTimeout(tid);
+  try{
+    const d=await api("scan");render(d.job);
+    if(d.job&&(d.job.running||(d.job.mail&&d.job.mail.state==="sending")))tid=setTimeout(poll,document.hidden?2000:350);
+  }catch(e){if(e.status===401){location.reload();return;}say("Lost connection. Retrying...",1);tid=setTimeout(poll,3000);}
+}
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&job&&job.running)poll();});
+function render(j){
+  job=j;if(!j)return;
+  setRun(j.running);
+  const m=((j.endedAt||Date.now())-j.startedAt)/6e4;
+  $("sC").textContent=j.checked;$("sA").textContent=j.found.length;$("sT").textContent=j.taken;$("sR").textContent=m>.02?Math.round(j.checked/m):0;
+  $("hitCard").classList.toggle("hit",j.found.length>0);prog(j.found.length,j.target);
+  const fresh=j.found.slice(shown);shown=j.found.length;
+  fresh.forEach(n=>{drawTiles(n,j.len,"ok");add(n);beep();burst();lastCur=n;hold=Date.now()+1000;});
+  if(j.running){
+    if(j.current&&j.current!==lastCur&&Date.now()>hold){drawTiles(j.current,j.len,"",true);lastCur=j.current;}
+    say(j.rl?"Rate limited by Roblox. Resuming shortly...":(fresh.length?fresh[fresh.length-1]+" is available!":"Checking "+j.current+" ("+j.found.length+"/"+j.target+" found)"),j.rl);
+  }
+  $("feed").textContent="";j.recent.forEach((n,i)=>{const e=document.createElement("s");e.textContent=n;e.style.opacity=1-i*.15;$("feed").append(e);});
+  document.title=(j.found.length?"("+j.found.length+") ":"")+"ClientSided's Private Roblox Name Scanner";
+  if(j.done){
+    let seen="";try{seen=localStorage.getItem("cs_seen")}catch(e){}
+    if(seen!==j.id){try{localStorage.setItem("cs_seen",j.id)}catch(e){}showSummary(j);}
+    mailUI(j);
+  }
+}
+function mailUI(j){
+  const el=$("mailmsg"),m=j.mail||{state:"off"};el.className="mailmsg";el.textContent="";
+  if(m.state==="sending")el.textContent="Emailing results to "+m.to+"...";
+  else if(m.state==="sent"){el.textContent="Emailed "+j.found.length+" name"+(j.found.length===1?"":"s")+" to "+m.to+".";el.classList.add("ok");}
+  else if(m.state==="failed"){el.textContent="Email failed: "+m.error;el.classList.add("bad");
+    const b=document.createElement("button");b.className="mini";b.textContent="Try again";b.onclick=()=>api("scan/mail",{}).then(poll).catch(e=>el.textContent=e.message);el.append(b);}
+}
+function showSummary(j){
+  const ms=j.endedAt-j.startedAt,min=ms/6e4,a=j.found.length;
+  const T={done:"Scan complete",stopped:"Scan stopped",exhausted:"Out of combinations",error:"Scan interrupted"};
+  $("sTitle").textContent=T[j.reason]||"Scan finished";$("sTitle").className=j.reason==="done"?"":"warn";
+  $("sWhen").textContent=new Date(j.endedAt).toLocaleDateString([],{weekday:"long",month:"long",day:"numeric"});
+  const F=[["Time taken",fmt(ms)],["Finished at",tm(j.endedAt)],["Available found",a+" of "+j.target],["Names checked",j.checked],["Taken (skipped)",j.taken],
+    ["Hit rate",j.checked?(a/j.checked*100).toFixed(1)+"%":"0%"],["Speed",(min>.01?Math.round(j.checked/min):j.checked)+" per minute"],["Avg time per find",a?fmt(ms/a):"none found"],
+    ["Rate-limit wait",fmt(j.rlWait)],["Started at",tm(j.startedAt)],["Settings",j.cfg,1]];
+  $("facts").textContent="";
+  F.forEach(([k,v,full])=>{const d=document.createElement("div"),b=document.createElement("b"),sp=document.createElement("span");
+    d.className="fact"+(full?" full":"");b.textContent=v;sp.textContent=k;d.append(b,sp);$("facts").append(d);});
+  $("sNames").textContent="";
+  j.found.forEach(n=>{const li=document.createElement("li"),sp=document.createElement("span");sp.textContent=n;li.append(sp);$("sNames").append(li);});
+  $("nHead").hidden=!a;
+  say((j.reason==="done"?"Done":"Stopped")+" in "+fmt(ms)+" at "+tm(j.endedAt)+". Found "+a+" available.");
+  $("ov").classList.add("on");$("closeS").focus();
+  if(j.reason==="done")burst();
+}
+const closeSummary=()=>$("ov").classList.remove("on");
+
+/* accounts, saved settings, passkeys */
+function saveS(){
+  if(!ready)return;clearTimeout(sv);
+  sv=setTimeout(()=>api("settings",{len:+$("len").value,target,pre:$("pre").value,oL:$("oL").checked,oN:$("oN").checked,oU:$("oU").checked,email:$("mail").value,mailOn:$("mailOn").checked}).catch(()=>{}),600);
+}
+function showAuth(msg){$("auth").hidden=false;$("dash").hidden=true;if(msg)$("authMsg").textContent=msg;}
+async function boot(){
+  try{me=(await api("me")).user;}catch(e){me=null;showAuth(e.status?"":"Can't reach the scanner server. Is node server.js running?");return;}
+  $("auth").hidden=true;$("dash").hidden=false;$("who").textContent=me.name;
+  const s=me.settings||{};
+  if(s.len)setLen(s.len);if(s.target)setTarget(s.target);
+  $("pre").value=s.pre||"";if("oL" in s){$("oL").checked=s.oL;$("oN").checked=s.oN;$("oU").checked=s.oU;}
+  $("mail").value=s.email||"";$("mailOn").checked=!!s.mailOn;
+  $("list").textContent="";me.names.slice().reverse().forEach(n=>add(n.name));$("none").hidden=me.names.length>0;
+  const d=await api("scan").catch(()=>({job:null}));
+  shown=d.job?d.job.found.length:0;lastCur="";
+  render(d.job);if(d.job&&(d.job.running||(d.job.mail&&d.job.mail.state==="sending")))poll();
+  ready=true;
+}
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
+  authMode=t.dataset.m;document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===t));
+  const l=authMode==="login";$("authTitle").textContent=l?"Sign in":"Create your account";$("authGo").textContent=l?"Sign in":"Create account";
+  $("pw").autocomplete=l?"current-password":"new-password";$("authMsg").textContent="";
+});
+$("authGo").onclick=async()=>{
+  $("authMsg").textContent="";
+  try{await api(authMode,{username:$("un").value.trim(),password:$("pw").value});$("pw").value="";await boot();}catch(e){$("authMsg").textContent=e.message;}
+};
+$("pw").addEventListener("keydown",e=>{if(e.key==="Enter")$("authGo").click();});
+const pkJSON=c=>({id:c.id,rawId:b64u(c.rawId),type:c.type,clientExtensionResults:c.getClientExtensionResults(),authenticatorAttachment:c.authenticatorAttachment});
+$("pkLogin").onclick=async()=>{
+  $("authMsg").textContent="";
+  try{
+    const{options:o,cid}=await api("passkey/auth-options",{});
+    o.challenge=unb(o.challenge);(o.allowCredentials||[]).forEach(c=>c.id=unb(c.id));
+    const c=await navigator.credentials.get({publicKey:o}),r=c.response;
+    await api("passkey/auth-verify",{cid,response:{...pkJSON(c),response:{clientDataJSON:b64u(r.clientDataJSON),authenticatorData:b64u(r.authenticatorData),signature:b64u(r.signature),userHandle:r.userHandle?b64u(r.userHandle):undefined}}});
+    await boot();
+  }catch(e){$("authMsg").textContent=e.name==="NotAllowedError"?"Passkey sign-in was cancelled.":e.message;}
+};
+$("addPk").onclick=async()=>{
+  const el=$("acctmsg");el.className="mailmsg";el.textContent="";
+  try{
+    const{options:o}=await api("passkey/reg-options",{});
+    o.challenge=unb(o.challenge);o.user.id=unb(o.user.id);(o.excludeCredentials||[]).forEach(c=>c.id=unb(c.id));
+    const c=await navigator.credentials.create({publicKey:o}),r=c.response;
+    await api("passkey/reg-verify",{response:{...pkJSON(c),response:{clientDataJSON:b64u(r.clientDataJSON),attestationObject:b64u(r.attestationObject),transports:r.getTransports?r.getTransports():[]}}});
+    el.textContent="Passkey added. You can now sign in with it.";el.classList.add("ok");
+  }catch(e){el.textContent=e.name==="NotAllowedError"?"Passkey setup was cancelled.":e.name==="InvalidStateError"?"This device already has a passkey for your account.":"Couldn't add passkey: "+e.message;el.classList.add("bad");}
+};
+if(!window.PublicKeyCredential){$("pkLogin").hidden=true;$("addPk").hidden=true;}
+$("logout").onclick=()=>api("logout",{}).finally(()=>location.reload());
+
+/* controls */
+$("len").oninput=e=>setLen(e.target.value);
+$("minus").onclick=()=>setLen(+$("len").value-1);$("plus").onclick=()=>setLen(+$("len").value+1);
 $("amt").oninput=e=>setTarget(e.target.value);
 $("tm").onclick=()=>setTarget(target-1);$("tp").onclick=()=>setTarget(target+1);
 document.querySelectorAll(".presets .mini").forEach(b=>b.onclick=()=>setTarget(b.dataset.n));
-$("closeS").onclick=closeSummary;
-$("ov").onclick=e=>{if(e.target===$("ov"))closeSummary();};
+document.querySelectorAll("#dash input").forEach(i=>i.addEventListener("input",saveS));
+$("go").onclick=()=>job&&job.running?api("scan/stop",{}).then(poll):startScan();
+$("snd").onclick=()=>{sound=!sound;$("snd").textContent=sound?"Sound on":"Sound off";};
+$("copyAll").onclick=()=>{const n=savedNames();if(n.length){navigator.clipboard.writeText(n.join("\n"));$("copyAll").textContent="Copied";setTimeout(()=>$("copyAll").textContent="Copy all",1200);}};
+$("clear").onclick=()=>{if(confirm("Delete all your saved names?"))api("names/clear",{}).then(()=>{$("list").textContent="";$("none").hidden=false;});};
+$("closeS").onclick=closeSummary;$("ov").onclick=e=>{if(e.target===$("ov"))closeSummary();};
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSummary();});
-$("again").onclick=()=>{closeSummary();scan();};
-$("copyN").onclick=()=>{navigator.clipboard.writeText(got.join("\n"));$("copyN").textContent="Copied";setTimeout(()=>$("copyN").textContent="Copy names",1200);};
-setLen(5);setTarget(5);
+$("again").onclick=()=>{closeSummary();startScan();};
+$("copyN").onclick=()=>{navigator.clipboard.writeText((job?job.found:[]).join("\n"));$("copyN").textContent="Copied";setTimeout(()=>$("copyN").textContent="Copy names",1200);};
+$("mailTest").onclick=async()=>{
+  const el=$("mailnote"),to=$("mail").value.trim();el.className="mailmsg";
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)){el.textContent="Enter a valid email address first.";el.classList.add("bad");return;}
+  el.textContent="Sending test email...";
+  try{await api("email/test",{to});el.textContent="Test email sent to "+to+".";el.classList.add("ok");}catch(e){el.textContent="Email failed: "+e.message;el.classList.add("bad");}
+};
+fetch("/api/mail-status").then(r=>r.json()).then(d=>{if(!d.configured){$("mailnote").textContent="Email isn't set up on the server yet. Create mail-config.json to turn it on.";$("mailnote").className="mailmsg bad";}}).catch(()=>{});
+setLen(5);setTarget(5);boot();
 </script>
 </body>
 </html>
