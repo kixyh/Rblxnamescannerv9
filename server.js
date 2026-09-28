@@ -37,10 +37,12 @@ function reportMail(j){
       j.found.map(n=>'<div style="font:700 17px monospace;padding:10px 14px;margin:6px 0;background:#eafff3;border-left:4px solid #22c55e;border-radius:6px">'+esc(n)+"</div>").join("")+
       '<table style="margin-top:18px;font-size:14px;border-collapse:collapse">'+rows.map(([k,v])=>'<tr><td style="padding:4px 14px 4px 0;color:#666">'+esc(k)+"</td><td>"+esc(v)+"</td></tr>").join("")+"</table></div>"};
 }
+const mailErr=e=>e.code==="MODULE_NOT_FOUND"?"Run npm install in the scanner folder first.":e.code==="EAUTH"?"The server's email login was rejected. For Gmail, put a 16-character App Password in mail-config.json (not your normal password).":(e.message||"Request failed");
+const codes=new Map();
 async function mailJob(j){
   j.mail={state:"sending",to:j.email};
   try{const m=reportMail(j);await sendMail(j.email,m.subject,m.text,m.html);j.mail={state:"sent",to:j.email}}
-  catch(e){j.mail={state:"failed",to:j.email,error:e.code==="MODULE_NOT_FOUND"?"Run npm install in the scanner folder first.":e.message}}
+  catch(e){j.mail={state:"failed",to:j.email,error:mailErr(e)}}
 }
 
 // ---- background scan jobs (keep running when the browser tab is hidden or closed)
@@ -114,16 +116,37 @@ http.createServer(async(req,res)=>{
         if(!/^[A-Za-z0-9_]{3,24}$/.test(name))return json(res,400,{error:"Username must be 3-24 letters, numbers or underscores."});
         if(pw.length<8||pw.length>200)return json(res,400,{error:"Password must be at least 8 characters."});
         if(getU(k))return json(res,409,{error:"That username is taken."});
+        const em=String(b.email||"").trim().toLowerCase();
+        if(!EMAIL.test(em))return json(res,400,{error:"Enter a valid email address."});
+        if(Object.values(db.users).some(x=>x.email===em))return json(res,409,{error:"That email already has an account."});
         const salt=rnd(16);
-        db.users[k]={key:k,name,id:rnd(16),salt,hash:(await scrypt(pw,salt,64)).toString("base64url"),creds:[],names:[],settings:{}};
+        db.users[k]={key:k,name,email:em,id:rnd(16),salt,hash:(await scrypt(pw,salt,64)).toString("base64url"),creds:[],names:[],settings:{}};
         startSession(req,res,db.users[k]);return json(res,200,{ok:true});
       }
-      const x=getU(k);let ok=false;
+      const x=k.includes("@")?Object.values(db.users).find(w=>w.email===k):getU(k);let ok=false;
       if(x&&x.hash){const h=await scrypt(pw,x.salt,64);ok=crypto.timingSafeEqual(h,Buffer.from(x.hash,"base64url"))}
       if(!ok){failed(lk);return json(res,401,{error:"Wrong username or password."})}
       startSession(req,res,x);return json(res,200,{ok:true});
     }
 
+    if(key==="POST /api/email/code"){
+      const em=String(b.email||"").trim().toLowerCase(),lk="c"+req.socket.remoteAddress+em;
+      if(!EMAIL.test(em))return json(res,400,{error:"Enter a valid email address."});
+      if(limited(lk))return json(res,429,{error:"Too many codes requested. Try again in a few minutes."});
+      failed(lk);
+      if(Object.values(db.users).some(w=>w.email===em)){
+        const code=String(crypto.randomInt(1e6)).padStart(6,"0");codes.set(em,{code,exp:Date.now()+6e5,tries:0});
+        await sendMail(em,"Your sign-in code","Your sign-in code is "+code+". It expires in 10 minutes.",'<p>Your sign-in code is <b style="font-size:22px;letter-spacing:4px">'+code+"</b></p><p>It expires in 10 minutes.</p>");
+      }
+      return json(res,200,{ok:true});
+    }
+    if(key==="POST /api/email/verify"){
+      const em=String(b.email||"").trim().toLowerCase(),c=codes.get(em),x=Object.values(db.users).find(w=>w.email===em);
+      if(!c||!x||c.exp<Date.now())return json(res,400,{error:"That code expired. Request a new one."});
+      if(++c.tries>5){codes.delete(em);return json(res,429,{error:"Too many wrong tries. Request a new code."})}
+      if(!/^\d{6}$/.test(String(b.code))||!crypto.timingSafeEqual(Buffer.from(String(b.code)),Buffer.from(c.code)))return json(res,401,{error:"Wrong code."});
+      codes.delete(em);startSession(req,res,x);return json(res,200,{ok:true});
+    }
     if(key==="POST /api/passkey/auth-options"){
       const o=await SW().generateAuthenticationOptions({rpID,userVerification:"preferred"}),cid=rnd(12);
       setChal(cid,o.challenge);return json(res,200,{options:o,cid});
@@ -141,7 +164,7 @@ http.createServer(async(req,res)=>{
 
     if(!u)return json(res,401,{error:"Please sign in."});
 
-    if(key==="GET /api/me")return json(res,200,{user:{name:u.name,settings:u.settings||{},names:u.names,passkeys:u.creds.length}});
+    if(key==="GET /api/me")return json(res,200,{user:{name:u.name,email:u.email||"",settings:u.settings||{},names:u.names,passkeys:u.creds.length}});
     if(key==="POST /api/logout"){delete db.sessions[cookies(req).sid];save();res.setHeader("Set-Cookie","sid=; Max-Age=0; Path=/");return json(res,200,{ok:true})}
 
     if(key==="POST /api/passkey/reg-options"){
@@ -193,6 +216,6 @@ http.createServer(async(req,res)=>{
     }
     return json(res,404,{error:"Not found"});
   }catch(e){
-    json(res,e.code==="MODULE_NOT_FOUND"?500:400,{error:e.code==="MODULE_NOT_FOUND"?"Run npm install in the scanner folder first.":(e.message||"Request failed")});
+    json(res,e.code==="MODULE_NOT_FOUND"?500:400,{error:mailErr(e)});
   }
 }).listen(process.env.PORT||3000,process.env.HOST||(process.env.PORT?"0.0.0.0":"127.0.0.1"),()=>console.log("Scanner running on port "+(process.env.PORT||3000)+" (email "+(configured()?"ready":"not set up")+")"));
