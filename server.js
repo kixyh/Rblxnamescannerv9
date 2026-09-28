@@ -1,9 +1,12 @@
 // ClientSided's Private Roblox Name Scanner: accounts, passkeys, background scanning, email
 const http=require("http"),fs=require("fs"),path=require("path"),crypto=require("crypto"),{promisify}=require("util");
 const scrypt=promisify(crypto.scrypt);
-const DBF=path.join(__dirname,"data.json");
+const os=require("os");
+let DIR=process.env.DATA_DIR||__dirname;
+try{fs.accessSync(DIR,fs.constants.W_OK)}catch(e){DIR=os.tmpdir();console.warn("WARNING: app folder is read-only. Using "+DIR+", so accounts and names will be lost on restart. Set DATA_DIR to a persistent disk.")}
+const DBF=path.join(DIR,"data.json");
 let db={users:{},sessions:{}};try{db=JSON.parse(fs.readFileSync(DBF,"utf8"))}catch(e){}
-const save=()=>{fs.writeFileSync(DBF+".tmp",JSON.stringify(db));fs.renameSync(DBF+".tmp",DBF)};
+const save=()=>{try{fs.writeFileSync(DBF+".tmp",JSON.stringify(db));fs.renameSync(DBF+".tmp",DBF)}catch(e){console.error("Could not save data:",e.message)}};
 const rnd=n=>crypto.randomBytes(n).toString("base64url");
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const EMAIL=/^[A-Za-z0-9._%+\-]{1,64}@[A-Za-z0-9.\-]{1,255}\.[A-Za-z]{2,}$/;
@@ -192,4 +195,4 @@ http.createServer(async(req,res)=>{
   }catch(e){
     json(res,e.code==="MODULE_NOT_FOUND"?500:400,{error:e.code==="MODULE_NOT_FOUND"?"Run npm install in the scanner folder first.":(e.message||"Request failed")});
   }
-}).listen(3000,process.env.HOST||"127.0.0.1",()=>console.log("Scanner running at http://localhost:3000 (email "+(configured()?"ready":"not set up")+")"));
+}).listen(process.env.PORT||3000,process.env.HOST||(process.env.PORT?"0.0.0.0":"127.0.0.1"),()=>console.log("Scanner running on port "+(process.env.PORT||3000)+" (email "+(configured()?"ready":"not set up")+")"));
