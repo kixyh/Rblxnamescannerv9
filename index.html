@@ -167,10 +167,17 @@ li .mini{margin:0;flex:none}
 <section class="glass auth" id="auth" hidden>
   <h2 id="authTitle">Sign in</h2>
   <div class="tabs"><button class="tab on" data-m="login">Sign in</button><button class="tab" data-m="signup">Create account</button></div>
-  <input class="field" id="un" placeholder="Username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="24">
+  <input class="field" id="un" placeholder="Username or email" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64">
+  <input class="field" id="em" type="email" placeholder="Email address" autocomplete="email" autocapitalize="none" spellcheck="false" hidden>
   <input class="field" id="pw" type="password" placeholder="Password (8+ characters)" autocomplete="current-password">
   <button class="go" id="authGo">Sign in</button>
   <button class="mini" id="pkLogin">Sign in with a passkey</button>
+  <button class="mini" id="emailLogin">Continue with email</button>
+  <div id="codeBox" hidden>
+    <input class="field" id="ce" type="email" placeholder="Your account email" autocomplete="email" autocapitalize="none">
+    <input class="field" id="cc" inputmode="numeric" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code" hidden>
+    <button class="mini" id="cgo">Email me a code</button>
+  </div>
   <div class="mailmsg bad" id="authMsg" role="alert"></div>
 </section>
 
@@ -398,7 +405,7 @@ async function boot(){
   const s=me.settings||{};
   if(s.len)setLen(s.len);if(s.target)setTarget(s.target);
   $("pre").value=s.pre||"";if("oL" in s){$("oL").checked=s.oL;$("oN").checked=s.oN;$("oU").checked=s.oU;}
-  $("mail").value=s.email||"";$("mailOn").checked=!!s.mailOn;
+  $("mail").value=s.email||me.email||"";$("mailOn").checked="mailOn" in s?!!s.mailOn:!!me.email;
   $("list").textContent="";me.names.slice().reverse().forEach(n=>add(n.name));$("none").hidden=me.names.length>0;
   const d=await api("scan").catch(()=>({job:null}));
   shown=d.job?d.job.found.length:0;lastCur="";
@@ -408,13 +415,21 @@ async function boot(){
 document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
   authMode=t.dataset.m;document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===t));
   const l=authMode==="login";$("authTitle").textContent=l?"Sign in":"Create your account";$("authGo").textContent=l?"Sign in":"Create account";
-  $("pw").autocomplete=l?"current-password":"new-password";$("authMsg").textContent="";
+  $("pw").autocomplete=l?"current-password":"new-password";$("authMsg").textContent="";$("em").hidden=l;$("un").placeholder=l?"Username or email":"Username";$("un").maxLength=l?64:24;
 });
 $("authGo").onclick=async()=>{
   $("authMsg").textContent="";
-  try{await api(authMode,{username:$("un").value.trim(),password:$("pw").value});$("pw").value="";await boot();}catch(e){$("authMsg").textContent=e.message;}
+  try{await api(authMode,{username:$("un").value.trim(),password:$("pw").value,email:$("em").value.trim()});$("pw").value="";await boot();}catch(e){$("authMsg").textContent=e.message;}
 };
 $("pw").addEventListener("keydown",e=>{if(e.key==="Enter")$("authGo").click();});
+$("emailLogin").onclick=()=>{$("codeBox").hidden=!$("codeBox").hidden;$("ce").focus();};
+$("cgo").onclick=async()=>{
+  const m=$("authMsg"),sending=$("cc").hidden;m.textContent="";
+  try{
+    if(sending){await api("email/code",{email:$("ce").value.trim()});$("cc").hidden=false;$("cc").focus();$("cgo").textContent="Verify code";m.textContent="If that email has an account, a code is on its way.";}
+    else{await api("email/verify",{email:$("ce").value.trim(),code:$("cc").value.trim()});await boot();}
+  }catch(e){m.textContent=e.message;}
+};
 const pkJSON=c=>({id:c.id,rawId:b64u(c.rawId),type:c.type,clientExtensionResults:c.getClientExtensionResults(),authenticatorAttachment:c.authenticatorAttachment});
 $("pkLogin").onclick=async()=>{
   $("authMsg").textContent="";
