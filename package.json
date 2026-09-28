@@ -2,5 +2,5 @@
   "name": "clientsided-name-scanner",
   "private": true,
   "scripts": { "start": "node server.js" },
-  "dependencies": { "nodemailer": "^6.9.0" }
+  "dependencies": { "@simplewebauthn/server": "^11.0.0", "nodemailer": "^6.9.0" }
 }
